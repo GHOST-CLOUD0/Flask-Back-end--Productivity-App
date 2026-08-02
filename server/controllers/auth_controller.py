@@ -2,8 +2,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 from server.models.user import User
 from server.extensions import db
-from server.utils.responses import (success_response, error_response)
-from werkzeug.security import generate_password_hash, check_password_hash
+from server.utils.responses import success_response, error_response
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -13,9 +12,10 @@ def signup():
     username = data.get('username')
     password = data.get('password')
     password_confirmation = data.get('password_confirmation')
+    email = data.get('email')
 
-    if not username or not password or not password_confirmation:
-        return error_response("Username, password, and password confirmation are required.", 400)
+    if not username or not password or not password_confirmation or not email:
+        return error_response("Username, email, password, and password confirmation are required.", 400)
 
     if password != password_confirmation:
         return error_response("Passwords do not match.", 400)
@@ -23,13 +23,20 @@ def signup():
     if User.query.filter_by(username=username).first():
         return error_response("Username already exists.", 400)
 
-    hashed_password = generate_password_hash(password)
-    new_user = User(username=username, password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
+    if User.query.filter_by(email=email).first():
+        return error_response("Email already registered.", 400)
 
-    access_token = create_access_token(identity=new_user.id)
-    return success_response({"token": access_token, "user": {"id": new_user.id, "username": new_user.username}}, 201)
+    try:
+        new_user = User(username=username, email=email)
+        new_user.password = password
+        db.session.add(new_user)
+        db.session.commit()
+
+        access_token = create_access_token(identity=new_user.id)
+        return success_response({"token": access_token, "user": new_user.to_dict()}, 201)
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f"Error creating user: {str(e)}", 500)
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -42,11 +49,11 @@ def login():
 
     user = User.query.filter_by(username=username).first()
 
-    if not user or not check_password_hash(user.password, password):
+    if not user or not user.check_password(password):
         return error_response("Invalid username or password.", 401)
 
     access_token = create_access_token(identity=user.id)
-    return success_response({"token": access_token, "user": {"id": user.id, "username": user.username}}, 200)
+    return success_response({"token": access_token, "user": user.to_dict()}, 200)
 
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()
@@ -57,7 +64,7 @@ def get_current_user():
     if not user:
         return error_response("User not found.", 404)
 
-    return success_response({"id": user.id, "username": user.username}, 200)
+    return success_response(user.to_dict(), 200)
 
 @auth_bp.route('/logout', methods=['DELETE'])
 @jwt_required()
