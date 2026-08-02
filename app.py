@@ -4,9 +4,8 @@ from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 
 from config import Config
-from server.controllers.auth_controller import auth_bp
-from server.controllers.task_controller import task_bp
 from server.extensions import bcrypt, db
+from routes import register_routes
 
 
 def create_app():
@@ -19,9 +18,7 @@ def create_app():
     jwt = JWTManager(app)
     Migrate(app, db)
 
-    # The supplied JWT client calls these routes without an /api prefix.
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(task_bp)
+    register_routes(app)
 
     @jwt.expired_token_loader
     def expired_token_callback(_jwt_header, _jwt_payload):
