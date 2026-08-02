@@ -31,3 +31,35 @@ def signup():
     access_token = create_access_token(identity=new_user.id)
     return success_response({"token": access_token, "user": {"id": new_user.id, "username": new_user.username}}, 201)
 
+@auth_bp.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return error_response("Username and password are required.", 400)
+
+    user = User.query.filter_by(username=username).first()
+
+    if not user or not check_password_hash(user.password, password):
+        return error_response("Invalid username or password.", 401)
+
+    access_token = create_access_token(identity=user.id)
+    return success_response({"token": access_token, "user": {"id": user.id, "username": user.username}}, 200)
+
+@auth_bp.route('/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return error_response("User not found.", 404)
+
+    return success_response({"id": user.id, "username": user.username}, 200)
+
+@auth_bp.route('/logout', methods=['DELETE'])
+@jwt_required()
+def logout():
+    return success_response({}, 200)
