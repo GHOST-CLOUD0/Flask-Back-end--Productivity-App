@@ -6,7 +6,6 @@ class User(BaseModel):
     __tablename__ = "users"
 
     username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     tasks = db.relationship("Task", back_populates="user",cascade="all, delete-orphan",lazy=True)
 
@@ -26,7 +25,6 @@ class User(BaseModel):
         user_dict.update({
             'id': self.id,
             'username': self.username,
-            'email': self.email,
         })
         return user_dict
 
