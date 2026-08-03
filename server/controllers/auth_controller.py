@@ -13,18 +13,35 @@ def auth_error(message, status_code):
 
 @auth_bp.route('/signup', methods=['POST'])
 def signup():
+    print("=== NEW SIGNUP FUNCTION IS RUNNING ===")
     data = request.get_json(silent=True) or {}
+    print(f"Received signup data: {data}")
+    
     username = data.get('username')
     password = data.get('password')
     password_confirmation = data.get('password_confirmation')
+    
+    print("Username:", username)
+    print("Password received:", bool(password))
+    print("Password confirmation received:", bool(password_confirmation))
 
     if not username or not password or not password_confirmation:
+        print("Missing fields in signup data.")
         return auth_error("Username, password, and password confirmation are required.", 400)
+    
+    print("All required fields are present. Proceeding with signup.")
 
     if password != password_confirmation:
+        print("Passwords do not match.")
         return auth_error("Passwords do not match.", 400)
 
-    if User.query.filter_by(username=username).first():
+    print("Passwords match. Checking if username already exists.")
+    
+    existing_user = User.query.filter_by(username=username).first()
+    print("Existing user:", existing_user)
+
+    if existing_user:
+        print("Username already exists.")
         return auth_error("Username already exists.", 400)
 
     try:
@@ -35,9 +52,10 @@ def signup():
 
         access_token = create_access_token(identity=new_user.id)
         return jsonify({"token": access_token, "user": new_user.to_dict()}), 201
-    except Exception:
+    except Exception as e:
         db.session.rollback()
-        return auth_error("Unable to create user.", 500)
+        print("ERROR:", e)
+        return auth_error(str(e), 500)
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
